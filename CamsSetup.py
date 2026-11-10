@@ -110,7 +110,7 @@ echo "[$(date)] Ротация: $LINK_PATH -> $TARGET_DIR" >> "{scripts_dir}/rot
 
 def setup_sudoers_for_bot(user):
     print("\n[4/6] Настройка прав sudo для команд бота...")
-    rule = f"{user} ALL=(ALL) NOPASSWD: /bin/systemctl restart AgentDVR, /bin/systemctl restart agentdvr, /sbin/reboot, /sbin/shutdown\n"
+    rule = f"{user} ALL=(ALL) NOPASSWD: /bin/systemctl restart vk-watcher.service, /bin/systemctl restart AgentDVR, /bin/systemctl restart agentdvr, /sbin/reboot, /sbin/shutdown\n"
     sudoers_path = "/etc/sudoers.d/cctv_bot"
     subprocess.run(["sudo", "tee", sudoers_path], input=rule, text=True, stdout=subprocess.DEVNULL, check=True)
     subprocess.run(["sudo", "chmod", "0440", sudoers_path], check=True)
@@ -271,9 +271,9 @@ def watcher_thread():
                                 )
                                 if thumb_url: post_text += f"\\n🖼 Превью: {{thumb_url}}"
                                 if video_url: post_text += f"\\n▶️ Смотреть онлайн: {{video_url}}"
-                                post_text += f"\\n\\n#камера_{{clean_cam}} #дата_{{tag_date}}"
+                                post_text += f"\\n\\n#камера_{{clean_cam}}@club{{GROUP_ID}} #дата_{{tag_date}}@club{{GROUP_ID}}"
 
-                                w_res = requests.get("https://api.vk.com/method/wall.post", params={{
+                                w_res = requests.post("https://api.vk.com/method/wall.post", data={{
                                     "access_token": VK_TOKEN,
                                     "owner_id": -GROUP_ID,
                                     "from_group": 1,
@@ -283,7 +283,11 @@ def watcher_thread():
                                 }}, timeout=15).json()
 
                                 if "response" in w_res:
-                                    print(f"[+] Опубликовано: {{upload_vname}}")
+                                    print(f"[+] Опубликовано на стене: {{upload_vname}}")
+                                    history.add(file)
+                                    add_to_history(file)
+                                else:
+                                    print(f"[!] Ошибка стены: {{w_res}}")
                                     history.add(file)
                                     add_to_history(file)
 
@@ -305,6 +309,58 @@ def send_msg(target_peer, text):
             "v": API_VERSION
         }}, timeout=10)
     except: pass
+
+def send_webcam_snap(target_peer):
+    dev = "/dev/video0" if os.path.exists("/dev/video0") else "/dev/video1"
+    img = f"/tmp/cat_{{int(time.time())}}.jpg"
+    cmd = ["ffmpeg", "-y", "-f", "v4l2", "-i", dev, "-vframes", "1", "-q:v", "2", img]
+    try:
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=8)
+        if not os.path.exists(img) or os.path.getsize(img) == 0:
+            err_msg = p.stderr.splitlines()[-1] if p.stderr else "Файл не создан"
+            send_msg(target_peer, f"⚠️ Ошибка ffmpeg: {{err_msg}}")
+            return
+    except Exception as e:
+        send_msg(target_peer, f"⚠️ Таймаут/Сбой ffmpeg: {{e}}")
+        return
+
+    try:
+        r1 = requests.get("https://api.vk.com/method/docs.getMessagesUploadServer", params={{"access_token": VK_TOKEN, "type": "doc", "peer_id": target_peer, "v": API_VERSION}}, timeout=10).json()
+        if "error" in r1:
+            send_msg(target_peer, f"⚠️ Ошибка сервера ВК: {{r1['error']['error_msg']}}")
+            return
+
+        up_url = r1["response"]["upload_url"]
+        with open(img, "rb") as f:
+            up_res = requests.post(up_url, files={{ "file": ("webcam.jpg", f) }}, timeout=60).json()
+
+        if "file" not in up_res:
+            send_msg(target_peer, f"⚠️ Ошибка загрузки файла: {{up_res}}")
+            return
+
+        r2 = requests.get("https://api.vk.com/method/docs.save", params={{"access_token": VK_TOKEN, "file": up_res["file"], "title": "webcam.jpg", "v": API_VERSION}}, timeout=10).json()
+        if "error" in r2:
+            send_msg(target_peer, f"⚠️ Ошибка сохранения doc: {{r2['error']['error_msg']}}")
+            return
+
+        d = r2["response"]["doc"]
+        att = "doc" + str(d["owner_id"]) + "_" + str(d["id"])
+        
+        send_msg(target_peer, "🐱 Кот на связи:")
+        requests.post("https://api.vk.com/method/messages.send", data={{
+            "access_token": VK_TOKEN,
+            "peer_id": target_peer,
+            "random_id": random.randint(1, 1000000000),
+            "attachment": att,
+            "v": API_VERSION
+        }}, timeout=10)
+
+    except Exception as e:
+        send_msg(target_peer, f"⚠️ Исключение в коде: {{e}}")
+    finally:
+        if os.path.exists(img):
+            try: os.remove(img)
+            except: pass
 
 def get_system_status():
     try:
@@ -366,7 +422,10 @@ def bot_thread():
                         if from_id != ADMIN_USER_ID:
                             continue
 
-                        if text in ["!статус", "!cpu", "!status"]:
+                        if text in ["!кот", "!вебка", "!cat"]:
+                            send_webcam_snap(from_id)
+
+                        elif text in ["!статус", "!cpu", "!status"]:
                             send_msg(peer_id, get_system_status())
 
                         elif text.startswith("!cmd "):
@@ -392,7 +451,7 @@ def bot_thread():
                             subprocess.run("sudo reboot", shell=True)
 
                         elif text in ["!help", "!помощь"]:
-                            send_msg(peer_id, "📋 Доступные команды:\\n!статус — нагрузка CPU, память, диск\\n!cmd <команда> — выполнить в bash\\n!dvr restart — перезапуск Agent DVR\\n!reboot — перезагрузка ПК")
+                            send_msg(peer_id, "📋 Доступные команды:\\n!статус — нагрузка CPU, память, диск\\n!cmd <команда> — выполнить в bash\\n!dvr restart — перезапуск Agent DVR\\n!reboot — перезагрузка ПК\\n!кот — снимок с вебкамеры")
         except Exception:
             time.sleep(5)
 
@@ -409,7 +468,7 @@ if __name__ == "__main__":
     os.chmod(watcher_file, 0o755)
 
 def setup_systemd(user, scripts_dir):
-    print("\n[6/6] Перезапуск службы vk-watcher...")
+    print("\n[6/6] Настройка автозапуска службы...")
     watcher_file = os.path.join(scripts_dir, "vk_watcher.py")
     service_content = f"""[Unit]
 Description=CCTV VK Watcher & Admin Bot
