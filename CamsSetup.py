@@ -1,3 +1,4 @@
+cat << 'EOF' > ~/CamsSetup.py
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -13,12 +14,10 @@ import shutil
 import subprocess
 import requests
 
-
 def print_banner():
     print("=" * 60)
     print("   AGENT DVR -> VK AUTOUPLOADER & REMOTE CONTROL BOT")
     print("=" * 60)
-
 
 def get_args():
     token = os.environ.get("VK_TOKEN")
@@ -37,23 +36,19 @@ def get_args():
     if not admin_id:
         admin_id = input("3. Введите ваш личный ID страницы VK для команд: ")
 
-    token = token.strip().replace("'", "").replace(
-        '"', "").replace("\n", "").replace(" ", "")
+    token = token.strip().replace("'", "").replace('"', "").replace("\n", "").replace(" ", "")
     group_id = group_id.strip().replace("-", "").replace(" ", "")
     admin_id = admin_id.strip().replace("-", "").replace(" ", "")
 
     if not group_id.isdigit() or not admin_id.isdigit():
-        print(
-            "\n[ОШИБКА] ID группы и ID администратора должны состоять строго из цифр.")
+        print("\n[ОШИБКА] ID группы и ID администратора должны состоять строго из цифр.")
         sys.exit(1)
 
     return token, int(group_id), int(admin_id)
 
-
 def verify_and_configure_vk(token, group_id):
     print("\n[1/6] Проверка токена и настройка прав Long Poll API...")
     try:
-        # Проверка сервера загрузки документов
         res = requests.get("https://api.vk.com/method/docs.getWallUploadServer", params={
             "access_token": token,
             "group_id": group_id,
@@ -64,7 +59,6 @@ def verify_and_configure_vk(token, group_id):
             print(f"[ОШИБКА VK] {res['error']['error_msg']}")
             sys.exit(1)
 
-        # Автоматическое включение Long Poll API сообщества для бота
         requests.get("https://api.vk.com/method/groups.setLongPollSettings", params={
             "access_token": token,
             "group_id": group_id,
@@ -79,13 +73,10 @@ def verify_and_configure_vk(token, group_id):
         print(f"[ОШИБКА] Сбой подключения к серверам VK: {e}")
         sys.exit(1)
 
-
 def install_system_dependencies():
     print("\n[2/6] Установка зависимостей (ffmpeg, psmisc, curl, python3-requests)...")
     subprocess.run(["sudo", "apt", "update", "-y"], check=True)
-    subprocess.run(["sudo", "apt", "install", "-y", "python3",
-                   "python3-requests", "ffmpeg", "curl", "psmisc"], check=True)
-
+    subprocess.run(["sudo", "apt", "install", "-y", "python3", "python3-requests", "ffmpeg", "curl", "psmisc"], check=True)
 
 def setup_paths_and_permissions(home, videos_dir, scripts_dir):
     print("\n[3/6] Настройка каталогов и суточной ротации...")
@@ -112,29 +103,21 @@ echo "[$(date)] Ротация: $LINK_PATH -> $TARGET_DIR" >> "{scripts_dir}/rot
         os.rename(video_path, os.path.join(videos_dir, "videos_old_archive"))
     subprocess.run([rotate_script], check=True)
 
-    # Настройка cron на полночь
-    existing_cron = subprocess.run(
-        ["crontab", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True).stdout
+    existing_cron = subprocess.run(["crontab", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True).stdout
     cron_line = f"0 0 * * * {rotate_script}\n"
     if "rotate_camera.sh" not in existing_cron:
         new_cron = existing_cron + cron_line
         subprocess.run(["crontab", "-"], input=new_cron, text=True, check=True)
 
-
 def setup_sudoers_for_bot(user):
-    """Разрешает скрипту перезагружать систему и службу DVR без пароля"""
-    print("\n[4/6] Настройка беспарольного доступа sudo для команд перезагрузки...")
+    print("\n[4/6] Настройка прав sudo для команд бота...")
     rule = f"{user} ALL=(ALL) NOPASSWD: /bin/systemctl restart AgentDVR, /bin/systemctl restart agentdvr, /sbin/reboot, /sbin/shutdown\n"
     sudoers_path = "/etc/sudoers.d/cctv_bot"
-    subprocess.run(["sudo", "tee", sudoers_path], input=rule,
-                   text=True, stdout=subprocess.DEVNULL, check=True)
+    subprocess.run(["sudo", "tee", sudoers_path], input=rule, text=True, stdout=subprocess.DEVNULL, check=True)
     subprocess.run(["sudo", "chmod", "0440", sudoers_path], check=True)
 
-
 def generate_watcher_daemon(home, scripts_dir, videos_dir, token, group_id, admin_id):
-    print("\n[5/6] Генерация изолированного фонового демона vk_watcher.py...")
-
-    # Сохраняем приватную конфигурацию в защищённый файл
+    print("\n[5/6] Генерация демона vk_watcher.py...")
     config_file = os.path.join(scripts_dir, "cctv_config.json")
     config_data = {
         "VK_TOKEN": token,
@@ -174,17 +157,13 @@ HISTORY_FILE = os.path.join(os.path.dirname(CONFIG_PATH), "uploaded_history.log"
 
 def is_file_ready(filepath):
     try:
-        if not os.path.exists(filepath):
-            return False
+        if not os.path.exists(filepath): return False
         size = os.path.getsize(filepath)
-        if size < 80000:
-            return False
+        if size < 80000: return False
         chk = subprocess.run(["fuser", filepath], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if chk.returncode == 0:
-            return False
+        if chk.returncode == 0: return False
         mtime = os.path.getmtime(filepath)
-        if (time.time() - mtime) < 8:
-            return False
+        if (time.time() - mtime) < 8: return False
         time.sleep(2)
         return size == os.path.getsize(filepath)
     except Exception:
@@ -247,9 +226,9 @@ def add_to_history(filename):
     with open(HISTORY_FILE, "a", encoding="utf-8") as f:
         f.write(filename + "\\n")
 
-# --- ПОТОК 1: МОНИТОРИНГ И ПУБЛИКАЦИЯ ВИДЕО ---
+# --- ПОТОК 1: ОТПРАВКА НА СТЕНУ ---
 def watcher_thread():
-    print(f"[*] Мониторинг каталога: {{WATCH_DIR}}")
+    print(f"[*] Мониторинг видео запущен: {{WATCH_DIR}}")
     history = load_history()
     while True:
         try:
@@ -263,7 +242,6 @@ def watcher_thread():
                             cam_name = "Камера"
 
                         if is_file_ready(full_path):
-                            # Обработка
                             temp_video = convert_to_mp4(full_path)
                             send_video = temp_video if temp_video else full_path
                             base_name = os.path.splitext(file)[0]
@@ -272,7 +250,6 @@ def watcher_thread():
                             file_size_mb = os.path.getsize(send_video) / (1024 * 1024)
                             duration_str = get_video_duration(send_video)
 
-                            # Загрузка превью и видео
                             thumb_path, is_temp_thumb = find_thumb_image(full_path)
                             thumb_url = None
                             if thumb_path:
@@ -318,12 +295,12 @@ def watcher_thread():
         except Exception as e:
             time.sleep(3)
 
-# --- ПОТОК 2: АДМИН-БОТ (LONG POLL) ---
-def send_dm(text):
+# --- ПОТОК 2: АДМИН-БОТ (ЛС + ЧАТЫ) ---
+def send_msg(target_peer, text):
     try:
         requests.post("https://api.vk.com/method/messages.send", data={{
             "access_token": VK_TOKEN,
-            "peer_id": ADMIN_USER_ID,
+            "peer_id": target_peer,
             "random_id": random.randint(1, 1000000000),
             "message": text[:4000],
             "v": API_VERSION
@@ -332,16 +309,25 @@ def send_dm(text):
 
 def get_system_status():
     try:
-        # Аптайм
         uptime = subprocess.check_output(["uptime", "-p"]).decode("utf-8").strip()
-        # Диск
         total, used, free = shutil.disk_usage(WATCH_DIR)
         disk_free_gb = free // (2**30)
         disk_total_gb = total // (2**30)
-        # Нагрузка
         load = os.getloadavg()
-        # Память
-        mem_info = subprocess.check_output("free -m | awk 'NR==2{{printf \"%s/%sMB (%.1f%%)\", $3,$2,$3*100/$2 }}'", shell=True).decode().strip()
+        
+        mem_info = "Н/Д"
+        if os.path.exists("/proc/meminfo"):
+            m = {{}}
+            with open("/proc/meminfo", "r") as f:
+                for line in f:
+                    p = line.split(":")
+                    if len(p) == 2:
+                        m[p[0].strip()] = int(p[1].split()[0])
+            total_mb = m.get("MemTotal", 0) // 1024
+            avail_mb = m.get("MemAvailable", 0) // 1024
+            used_mb = total_mb - avail_mb
+            pct = (used_mb / total_mb * 100) if total_mb else 0
+            mem_info = f"{{used_mb}}/{{total_mb}} МБ ({{pct:.1f}}%)"
         
         return (
             f"📊 Состояние сервера:\\n"
@@ -354,10 +340,9 @@ def get_system_status():
         return f"Ошибка сбора метрик: {{e}}"
 
 def bot_thread():
-    print("[*] Админ-бот запущен. Ожидание команд в ЛС сообщества...")
+    print("[*] Админ-бот запущен. Ожидание команд...")
     while True:
         try:
-            # Получаем сессию Long Poll
             lp = requests.get("https://api.vk.com/method/groups.getLongPollServer", params={{"access_token": VK_TOKEN, "group_id": GROUP_ID, "v": API_VERSION}}, timeout=15).json()
             if "error" in lp:
                 time.sleep(10)
@@ -368,21 +353,22 @@ def bot_thread():
 
             while True:
                 resp = requests.get(f"{{server}}?act=a_check&key={{key}}&ts={{ts}}&wait=25", timeout=35).json()
-                if "failed" in resp:
-                    break
+                if "failed" in resp: break
                 ts = resp.get("ts", ts)
                 for update in resp.get("updates", []):
                     if update.get("type") == "message_new":
-                        msg = update.get("object", {{}}).get("message", {{}})
+                        obj = update.get("object", {{}})
+                        msg = obj.get("message", obj)
                         from_id = msg.get("from_id")
+                        peer_id = msg.get("peer_id", from_id)
                         text = msg.get("text", "").strip()
 
-                        # Строгая проверка: отвечаем только админу
+                        # Строгая проверка: только автор-админ
                         if from_id != ADMIN_USER_ID:
                             continue
 
                         if text in ["!статус", "!cpu", "!status"]:
-                            send_dm(get_system_status())
+                            send_msg(peer_id, get_system_status())
 
                         elif text.startswith("!cmd "):
                             cmd = text[5:].strip()
@@ -390,24 +376,24 @@ def bot_thread():
                                 res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=12)
                                 out = res.stdout if res.stdout else res.stderr
                                 if not out: out = "[Команда выполнена, вывод пуст]"
-                                send_dm(f"💻 $ {{cmd}}\\n\\n{{out}}")
+                                send_msg(peer_id, f"💻 $ {{cmd}}\\n\\n{{out}}")
                             except subprocess.TimeoutExpired:
-                                send_dm(f"⚠️ Ошибка: Таймаут команды (более 12 сек)")
+                                send_msg(peer_id, "⚠️ Ошибка: Таймаут команды (более 12 сек)")
                             except Exception as e:
-                                send_dm(f"⚠️ Ошибка: {{e}}")
+                                send_msg(peer_id, f"⚠️ Ошибка: {{e}}")
 
                         elif text in ["!dvr restart", "!dvr"]:
-                            send_dm("⏳ Перезапускаю службу Agent DVR...")
+                            send_msg(peer_id, "⏳ Перезапускаю службу Agent DVR...")
                             subprocess.run("sudo systemctl restart AgentDVR || sudo systemctl restart agentdvr", shell=True)
-                            send_dm("✅ Команда перезапуска Agent DVR выполнена.")
+                            send_msg(peer_id, "✅ Команда перезапуска Agent DVR выполнена.")
 
                         elif text in ["!reboot"]:
-                            send_dm("⚠️ Перезагрузка системы по запросу администратора...")
+                            send_msg(peer_id, "⚠️ Перезагрузка системы...")
                             time.sleep(2)
                             subprocess.run("sudo reboot", shell=True)
 
                         elif text in ["!help", "!помощь"]:
-                            send_dm("📋 Доступные команды:\\n!статус — нагрузка CPU, память, диск\\n!cmd <команда> — выполнить в терминале\\n!dvr restart — перезапуск Agent DVR\\n!reboot — перезагрузка ПК")
+                            send_msg(peer_id, "📋 Доступные команды:\\n!статус — нагрузка CPU, память, диск\\n!cmd <команда> — выполнить в bash\\n!dvr restart — перезапуск Agent DVR\\n!reboot — перезагрузка ПК")
         except Exception:
             time.sleep(5)
 
@@ -423,9 +409,8 @@ if __name__ == "__main__":
         f.write(watcher_code)
     os.chmod(watcher_file, 0o755)
 
-
 def setup_systemd(user, scripts_dir):
-    print("\n[6/6] Настройка автозапуска службы vk-watcher...")
+    print("\n[6/6] Перезапуск службы vk-watcher...")
     watcher_file = os.path.join(scripts_dir, "vk_watcher.py")
     service_content = f"""[Unit]
 Description=CCTV VK Watcher & Admin Bot
@@ -441,39 +426,31 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 """
-    subprocess.run(["sudo", "tee", "/etc/systemd/system/vk-watcher.service"],
-                   input=service_content, text=True, stdout=subprocess.DEVNULL, check=True)
+    subprocess.run(["sudo", "tee", "/etc/systemd/system/vk-watcher.service"], input=service_content, text=True, stdout=subprocess.DEVNULL, check=True)
     subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
-    subprocess.run(["sudo", "systemctl", "enable", "--now",
-                   "vk-watcher.service"], check=True)
-    subprocess.run(["sudo", "systemctl", "restart",
-                   "vk-watcher.service"], check=True)
-
+    subprocess.run(["sudo", "systemctl", "enable", "--now", "vk-watcher.service"], check=True)
+    subprocess.run(["sudo", "systemctl", "restart", "vk-watcher.service"], check=True)
 
 def main():
     print_banner()
     token, group_id, admin_id = get_args()
     verify_and_configure_vk(token, group_id)
     install_system_dependencies()
-
+    
     home = os.path.expanduser("~")
     user = os.environ.get("USER", "user")
     scripts_dir = os.path.join(home, "scripts")
     videos_dir = os.path.join(home, "Videos")
-
+    
     setup_paths_and_permissions(home, videos_dir, scripts_dir)
     setup_sudoers_for_bot(user)
-    generate_watcher_daemon(home, scripts_dir, videos_dir,
-                            token, group_id, admin_id)
+    generate_watcher_daemon(home, scripts_dir, videos_dir, token, group_id, admin_id)
     setup_systemd(user, scripts_dir)
-
+    
     print("\n" + "=" * 60)
     print("      УСТАНОВКА УСПЕШНО ЗАВЕРШЕНА!")
     print("=" * 60)
-    print("• Видео публикуются на стену с тегами #камера_X и #дата_ДД_ММ_ГГГГ")
-    print(f"• Админ-бот готов к работе. Напишите в ЛС группы: !статус")
-    print("=" * 60)
-
 
 if __name__ == "__main__":
     main()
+EOF
