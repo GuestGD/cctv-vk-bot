@@ -89,3 +89,9 @@
 ```bash
 !cmd tail -n 10 ~/scripts/rotation.log
 ```
+
+**5. journalctl **
+
+```bash
+journalctl -u vk-watcher -f
+```
