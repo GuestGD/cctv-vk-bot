@@ -8,12 +8,12 @@ from .config import ADMIN_USER_ID, WATCH_DIR
 
 HELP = (
     "📋 Команды:\n"
-    "!статус — CPU, память, диск\n"
+    "!статус | !status | !cpu — CPU, память, диск\n"
     "!cmd <команда> — bash\n"
     "!dvr restart — перезапуск Agent DVR\n"
     "!reboot — перезагрузка ПК\n"
-    "!кот — снимок с веб-камеры\n"
-    "!звук — 5 сек. с микрофона"
+    "!кот | !вебка | !cat | !webcam — снимок с веб-камеры\n"
+    "!звук | !mic — 5 сек. с микрофона"
 )
 
 
@@ -27,7 +27,8 @@ def _webcam(peer):
         if attach:
             vkapi.send_message(peer, "🐱 Кот на связи:", attach)
         else:
-            vkapi.send_message(peer, "⚠️ Не удалось отправить снимок: %s" % err)
+            vkapi.send_message(
+                peer, "⚠️ Не удалось отправить снимок: %s" % err)
     finally:
         try:
             os.remove(img)
@@ -37,21 +38,19 @@ def _webcam(peer):
 
 def _audio(peer):
     vkapi.send_message(peer, "🎤 Записываю 5 сек...")
-    mp3, err = media.record_audio(5)
-    if not mp3:
+    ogg, err = media.record_audio(5)
+    if not ogg:
         vkapi.send_message(peer, "⚠️ Аудио: %s" % err)
         return
     try:
-        attach, err = vkapi.upload_doc_to_messages(mp3, "audio_record.mp3", peer)
-        if not attach:
-            attach, err = vkapi.upload_doc_to_wall(mp3, "audio_record.mp3")
+        attach, err = vkapi.upload_voice_message(ogg, peer)
         if attach:
-            vkapi.send_message(peer, "🎙 Аудиозапись (5 сек):", attach)
+            vkapi.send_message(peer, "🎙 Голосовое (5 сек):", attach)
         else:
             vkapi.send_message(peer, "⚠️ Ошибка загрузки аудио: %s" % err)
     finally:
         try:
-            os.remove(mp3)
+            os.remove(ogg)
         except OSError:
             pass
 
@@ -70,7 +69,7 @@ def _cmd(peer, text):
 
 
 def handle_command(text, peer_id):
-    if text in ("!кот", "!вебка", "!cat"):
+    if text in ("!кот", "!вебка", "!webcam", "!cat"):
         _webcam(peer_id)
     elif text in ("!звук", "!аудио", "!mic"):
         _audio(peer_id)

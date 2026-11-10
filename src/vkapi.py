@@ -50,6 +50,38 @@ def upload_doc_to_wall(path, name):
     return _save_doc(up["file"], name)
 
 
+def upload_voice_message(path, peer_id):
+    """Загрузка голосового сообщения (audio_message)."""
+    params = {"type": "audio_message", "peer_id": peer_id}
+    if GROUP_ID:
+        params["group_id"] = GROUP_ID
+    r = call("docs.getMessagesUploadServer", params)
+    if "error" in r:
+        return None, r["error"]["error_msg"]
+
+    with open(path, "rb") as fh:
+        up = requests.post(r["response"]["upload_url"],
+                           files={"file": ("voice.ogg", fh)}, timeout=60).json()
+
+    if "file" not in up:
+        return None, "upload: %s" % str(up)[:300]
+
+    save = call("docs.save", {"file": up["file"], "title": "voice.ogg"})
+    if "error" in save:
+        return None, save["error"]["error_msg"]
+
+    resp = save.get("response", {})
+    if "audio_message" in resp:
+        m = resp["audio_message"]
+        return "doc%d_%d" % (m["owner_id"], m["id"]), None
+
+    if "doc" in resp:
+        d = resp["doc"]
+        return "doc%d_%d" % (d["owner_id"], d["id"]), None
+
+    return None, "неизвестный ответ: %s" % str(resp)[:300]
+
+
 def send_message(peer_id, text="", attachment=None):
     params = {"peer_id": peer_id, "random_id": random.randint(1, 10**9)}
     if text:

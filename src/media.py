@@ -82,13 +82,15 @@ def capture_webcam():
 
 def record_audio(seconds=5):
     wav = "/tmp/mic_rec_%d.wav" % int(time.time())
-    mp3 = "/tmp/mic_%d.mp3" % int(time.time())
+    ogg = "/tmp/mic_%d.ogg" % int(time.time())
     try:
         subprocess.run(["arecord", "-d", str(seconds), "-f", "cd", wav],
                        stdout=DEVNULL, stderr=DEVNULL, timeout=seconds + 8)
         if not os.path.exists(wav) or os.path.getsize(wav) == 0:
             return None, "микрофон не отвечает"
-        subprocess.run(["ffmpeg", "-y", "-i", wav, "-b:a", "128k", mp3],
+        # ВК хочет OGG/Opus для audio_message
+        subprocess.run(["ffmpeg", "-y", "-i", wav,
+                        "-c:a", "libopus", "-b:a", "64k", "-f", "ogg", ogg],
                        stdout=DEVNULL, stderr=DEVNULL, timeout=15)
     except Exception as exc:
         return None, str(exc)
@@ -97,9 +99,9 @@ def record_audio(seconds=5):
             os.remove(wav)
         except OSError:
             pass
-    if not os.path.exists(mp3) or os.path.getsize(mp3) == 0:
-        return None, "не удалось сконвертировать в mp3"
-    return mp3, None
+    if not os.path.exists(ogg) or os.path.getsize(ogg) == 0:
+        return None, "не удалось сконвертировать в ogg/opus"
+    return ogg, None
 
 
 def system_status(watch_dir):
