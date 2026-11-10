@@ -1,4 +1,3 @@
-cat << 'EOF' > ~/uninstall.sh
 #!/bin/bash
 set -e
 
@@ -33,8 +32,8 @@ if [ -L "$HOME/Videos/video" ]; then
     mkdir -p "$HOME/Videos/video"
 fi
 
-# 6. Удаление скриптов и конфигов
-echo "[6/6] Удаление скриптов и закрытых конфигов..."
+# 6. Удаление скриптов, конфигов и временных файлов
+echo "[6/6] Удаление скриптов и файлов конфигурации..."
 rm -f "$HOME/scripts/vk_watcher.py"
 rm -f "$HOME/scripts/rotate_camera.sh"
 rm -f "$HOME/scripts/cctv_config.json"
@@ -43,7 +42,7 @@ rm -f "$HOME/scripts/rotation.log"
 rm -f "$HOME/scripts/vk_config.py"
 rm -f "$HOME/scripts/live_cam.sh"
 rm -f "$HOME/Desktop/Camera_Live.desktop" "$HOME/Рабочий стол/Camera_Live.desktop" 2>/dev/null || true
-rm -f /tmp/upload_*.mp4 /tmp/thumb_*.jpg 2>/dev/null || true
+rm -f /tmp/upload_*.mp4 /tmp/thumb_*.jpg /tmp/cat_*.jpg 2>/dev/null || true
 
 # Удаляем папку scripts, если в ней больше ничего нет
 rmdir "$HOME/scripts" 2>/dev/null || true
@@ -55,5 +54,3 @@ echo "=================================================="
 echo "• Службы, автозапуск, cron и конфиги зачищены."
 echo "• Сами файлы видео в папках Videos/ НЕ удалялись."
 echo "=================================================="
-EOF
-chmod +x ~/uninstall.sh
