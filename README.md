@@ -4,7 +4,7 @@
 
 ## Установка
 ```bash
-git clone https://github.com/ВАШ_АККАУНТ/cctv-vk-bot.git
+git clone https://github.com/guestgd/cctv-vk-bot.git
 cd cctv-vk-bot
 ```
 
